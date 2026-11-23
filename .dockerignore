@@ -1,0 +1,17 @@
+.git
+.gitignore
+.pytest_cache
+__pycache__
+*.pyc
+.env
+.env.*
+lace_data_local
+data
+output
+outputs
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.3mf
+*.gcode

@@ -11,6 +11,7 @@ inputs/
 *.local.*
 .env
 .env.*
+!.env.example
 
 # Media, Images, Vector & 3D Fabrication Outputs (Never commit to Git)
 *.png

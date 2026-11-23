@@ -687,68 +687,262 @@ def render_style_draft_preview_svg(
     return "\n".join(svg_parts)
 
 
-def _try_ai_style_drafts(
+def _vectorize_flat_graphic_image(
+    gen_image_bytes: bytes,
+    draft_id: str,
+    name: str,
+    description: str,
+    focal_center: Point2D,
+) -> StyleDraft:
+    """Convert a crisp flat-color Gemini-generated Style Draft image into VectorRegions + StructuralLines."""
+    img = Image.open(io.BytesIO(gen_image_bytes)).convert("RGB")
+    grid_n = 72
+    small = img.resize((grid_n, grid_n), Image.Resampling.BILINEAR)
+    pixels = small.load()
+
+    # Estimate uniform background color from the 4 corners
+    corners = [
+        pixels[0, 0],
+        pixels[grid_n - 1, 0],
+        pixels[0, grid_n - 1],
+        pixels[grid_n - 1, grid_n - 1],
+    ]
+    bg_r = sum(c[0] for c in corners) / 4.0
+    bg_g = sum(c[1] for c in corners) / 4.0
+    bg_b = sum(c[2] for c in corners) / 4.0
+
+    # Collect foreground pixels and quantize into up to 4 distinct flat color slots
+    fg_coords: list[tuple[int, int, tuple[int, int, int]]] = []
+    for y in range(grid_n):
+        for x in range(grid_n):
+            r, g, b = pixels[x, y]
+            dist = math.sqrt((r - bg_r) ** 2 + (g - bg_g) ** 2 + (b - bg_b) ** 2)
+            if dist > 28.0:
+                fg_coords.append((x, y, (r, g, b)))
+
+    fg_ratio = len(fg_coords) / float(grid_n * grid_n)
+    whitespace_ratio = round(max(0.55, min(0.95, 1.0 - fg_ratio)), 4)
+
+    # Greedy distinct-color centroids (up to 4 slots)
+    centroids: list[tuple[float, float, float]] = []
+    for _, _, rgb in fg_coords[:: max(1, len(fg_coords) // 400)]:
+        if not centroids:
+            centroids.append((float(rgb[0]), float(rgb[1]), float(rgb[2])))
+            continue
+        min_d = min(
+            math.sqrt((rgb[0] - c[0]) ** 2 + (rgb[1] - c[1]) ** 2 + (rgb[2] - c[2]) ** 2)
+            for c in centroids
+        )
+        if min_d > 55.0 and len(centroids) < 4:
+            centroids.append((float(rgb[0]), float(rgb[1]), float(rgb[2])))
+    if not centroids:
+        centroids = [(0.0, 143.0, 122.0)]
+
+    # Build per-slot binary masks and trace clean polygonal contours
+    slot_masks: dict[int, list[list[int]]] = {
+        slot: [[0] * grid_n for _ in range(grid_n)]
+        for slot in range(1, len(centroids) + 1)
+    }
+    for x, y, rgb in fg_coords:
+        best_slot = 1
+        best_d = 1e9
+        for idx, c in enumerate(centroids, start=1):
+            d = (rgb[0] - c[0]) ** 2 + (rgb[1] - c[1]) ** 2 + (rgb[2] - c[2]) ** 2
+            if d < best_d:
+                best_d = d
+                best_slot = idx
+        slot_masks[best_slot][y][x] = 1
+
+    regions: list[VectorRegion] = []
+    structural_lines: list[StructuralLine] = []
+    reg_counter = 0
+
+    for slot, mask in slot_masks.items():
+        comps = _connected_components(mask, grid_n, grid_n)
+        for comp in comps:
+            if len(comp) < 4:
+                continue
+            comp_mask = [[0] * grid_n for _ in range(grid_n)]
+            for cx_i, cy_i in comp:
+                comp_mask[cy_i][cx_i] = 1
+            raw_contour = _trace_moore_contour(comp_mask, grid_n, grid_n)
+            if len(raw_contour) < 3:
+                continue
+            norm_pts = [(px / float(grid_n), py / float(grid_n)) for px, py in raw_contour]
+            simplified = rdp_simplify(norm_pts, epsilon=0.012)
+            if len(simplified) >= 3:
+                reg_counter += 1
+                regions.append(
+                    VectorRegion(
+                        id=f"{draft_id}_r{reg_counter}",
+                        color_slot=slot,
+                        exterior=_ensure_ccw(simplified),
+                        holes=[],
+                        semantic_role="primary_subject" if slot <= 2 else "modular_accent",
+                    )
+                )
+            elif len(simplified) == 2:
+                structural_lines.append(
+                    StructuralLine(
+                        id=f"{draft_id}_l{len(structural_lines) + 1}",
+                        color_slot=slot,
+                        points=simplified,
+                        weight=0.016,
+                        role="structural_contour",
+                    )
+                )
+
+    # Ensure at least one structural spine line exists for Stage 3 Mode C testing
+    if not structural_lines and fg_coords:
+        xs = [p[0] / float(grid_n) for p in fg_coords]
+        ys = [p[1] / float(grid_n) for p in fg_coords]
+        structural_lines.append(
+            StructuralLine(
+                id=f"{draft_id}_axis",
+                color_slot=min(len(centroids), 3),
+                points=[(min(xs), (min(ys) + max(ys)) * 0.5), (max(xs), (min(ys) + max(ys)) * 0.5)],
+                weight=0.015,
+                role="posture_axis",
+            )
+        )
+
+    b64_png = base64.b64encode(gen_image_bytes).decode("ascii")
+    draft = StyleDraft(
+        draft_id=draft_id,
+        name=name,
+        description=description,
+        engine="ai",
+        whitespace_ratio=whitespace_ratio,
+        focal_center=focal_center,
+        regions=regions,
+        structural_lines=structural_lines,
+        preview_svg=(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="100%" height="100%">'
+            f'<image href="data:image/png;base64,{b64_png}" x="0" y="0" width="600" height="600" preserveAspectRatio="xMidYMid meet"/>'
+            "</svg>"
+        ),
+    )
+    return draft
+
+
+def _try_gemini_image_style_drafts(
     image_bytes: bytes,
     whitespace_target: float,
     focal_center: Point2D,
     api_key: str,
     model: str,
+    style_cue_images: list[bytes] | None = None,
 ) -> list[StyleDraft] | None:
-    """Attempt calling Gemini JSON vision API if engine='ai' and api_key is provided."""
-    try:
-        b64_img = base64.b64encode(image_bytes).decode("ascii")
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-            f"?key={api_key}"
-        )
-        prompt_text = (
-            "Extract 3 minimalist geometric icon StyleDraft JSON objects from this image. "
-            f"Center focus around ({focal_center[0]:.2f}, {focal_center[1]:.2f}) with whitespace_ratio >= {max(0.55, whitespace_target):.2f}. "
-            "Return JSON array of objects with keys: draft_id, name, description, whitespace_ratio, "
-            "regions (id, color_slot 0..3, exterior [[x,y],...], holes, semantic_role), "
-            "structural_lines (id, color_slot 1..3, points [[x,y],...], weight, role)."
-        )
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt_text},
-                        {"inline_data": {"mime_type": "image/png", "data": b64_img}},
-                    ]
-                }
-            ],
-            "generationConfig": {"responseMimeType": "application/json"},
-        }
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=6.0) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-        text_content = body["candidates"][0]["content"]["parts"][0]["text"]
-        parsed: list[dict[str, Any]] = json.loads(text_content)
-        if not isinstance(parsed, list) or len(parsed) < 3:
-            return None
+    """Call Gemini native image generation (responseModalities: IMAGE) with visual style cues."""
+    import os
 
-        drafts: list[StyleDraft] = []
-        for idx, item in enumerate(parsed[:3]):
-            d = StyleDraft(
-                draft_id=str(item.get("draft_id", f"style_ai_{idx + 1}")),
-                name=str(item.get("name", f"AI 几何草稿 {idx + 1}")),
-                description=str(item.get("description", "AI vision geometric abstraction.")),
-                engine="ai",
-                whitespace_ratio=max(0.55, float(item.get("whitespace_ratio", whitespace_target))),
-                focal_center=focal_center,
-                regions=[VectorRegion(**r) for r in item.get("regions", [])],
-                structural_lines=[StructuralLine(**l) for l in item.get("structural_lines", [])],
+    resolved_model = model or os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+    if "image" not in resolved_model and "imagen" not in resolved_model:
+        resolved_model = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{resolved_model}:generateContent"
+        f"?key={api_key}"
+    )
+
+    ws_pct = int(round(max(0.55, min(0.85, whitespace_target)) * 100))
+    variants = [
+        (
+            "style_gemini_architectural",
+            "建筑几何体块 / Gemini Architectural Massing",
+            "Gemini image-to-image modernist architectural massing with crisp flat planes and generous negative space.",
+            (
+                f"Transform the main subject of the input photo into a standalone editorial modernist geometric illustration "
+                f"matching the clean flat-plane aesthetic of the reference style cues. Strip away all background clutter, sky, "
+                f"and surrounding noise. Float the simplified subject centered at ({focal_center[0]:.2f}, {focal_center[1]:.2f}) "
+                f"with at least {ws_pct}% solid warm-white (#F5F1E6) breathing whitespace. Use ONLY 3-4 flat, matte architectural "
+                f"color blocks with sharp polygonal facets, zero gradients, zero textures, zero text."
+            ),
+        ),
+        (
+            "style_gemini_swiss_negative",
+            "瑞士平面负空间 / Gemini Swiss Modernist & Negative Space",
+            "Gemini Swiss graphic abstraction emphasizing high-contrast silhouettes, clean negative space cutouts, and structural axis marks.",
+            (
+                f"Transform the main subject of the input photo into a Swiss modernist minimalist graphic poster icon "
+                f"inspired by the reference style cues. Remove the background completely and isolate the core silhouette and "
+                f"narrative relationship on a solid warm-white (#F5F1E6) canvas with >= {ws_pct}% negative space. Use bold flat "
+                f"color blocks (max 3-4 functional colors: teal, cobalt, vermilion orange, deep ink), crisp negative-space cutouts, "
+                f"and minimal geometric structural lines. Zero gradients, zero shadows, zero text."
+            ),
+        ),
+        (
+            "style_gemini_gouache_icon",
+            "极简平涂标识 / Gemini Flat Geometric Symbol",
+            "Gemini ultra-restrained minimalist geometric symbol optimized for 60x60 cross-stitch grid translation.",
+            (
+                f"Distill the input photo into an ultra-minimalist geometric visual symbol with maximum recognizability using "
+                f"the fewest possible flat modular shapes. Place the symbol as the sole focal point on a solid warm-white (#F5F1E6) "
+                f"canvas with >= {ws_pct}% whitespace. Strictly flat solid colors (3-4 refined non-neon hues), clean geometric edges, "
+                f"no gradients, no fine noise, no text—designed to translate cleanly onto a 60x60 cross-stitch grid."
+            ),
+        ),
+    ]
+
+    b64_src = base64.b64encode(image_bytes).decode("ascii")
+    cue_parts: list[dict[str, Any]] = []
+    if style_cue_images:
+        for cue_bytes in style_cue_images[:3]:
+            cue_parts.append(
+                {
+                    "inline_data": {
+                        "mime_type": "image/png",
+                        "data": base64.b64encode(cue_bytes).decode("ascii"),
+                    }
+                }
             )
-            if not d.regions or not d.structural_lines:
-                return None
-            d.preview_svg = render_style_draft_preview_svg(d)
-            drafts.append(d)
-        return drafts
+
+    drafts: list[StyleDraft] = []
+    try:
+        for draft_id, name, desc, prompt_text in variants:
+            parts: list[dict[str, Any]] = [
+                {"text": prompt_text},
+                {"inline_data": {"mime_type": "image/png", "data": b64_src}},
+                *cue_parts,
+            ]
+            payload = {
+                "contents": [{"parts": parts}],
+                "generationConfig": {"responseModalities": ["IMAGE"]},
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30.0) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+
+            gen_b64: str | None = None
+            for cand in body.get("candidates", []):
+                for part in cand.get("content", {}).get("parts", []):
+                    inline = part.get("inlineData") or part.get("inline_data")
+                    if inline and inline.get("data"):
+                        gen_b64 = inline["data"]
+                        break
+                if gen_b64:
+                    break
+
+            if not gen_b64:
+                continue
+
+            gen_bytes = base64.b64decode(gen_b64)
+            draft = _vectorize_flat_graphic_image(
+                gen_image_bytes=gen_bytes,
+                draft_id=draft_id,
+                name=name,
+                description=desc,
+                focal_center=focal_center,
+            )
+            if draft.regions:
+                drafts.append(draft)
+
+        return drafts if drafts else None
     except (urllib.error.URLError, KeyError, ValueError, TypeError, OSError):
         return None
 
@@ -759,21 +953,26 @@ def generate_style_drafts(
     whitespace_target: float = 0.68,
     focal_offset: tuple[float, float] = (0.0, 0.0),
     api_key: str | None = None,
-    model: str = "gemini-2.5-flash",
+    model: str = "gemini-2.5-flash-image",
+    style_cue_images: list[bytes] | None = None,
 ) -> list[StyleDraft]:
     """Generate 3 distinct minimalist geometric StyleDraft candidates from an input image."""
+    import os
+
     focal_center: Point2D = (
         round(max(0.22, min(0.78, 0.5 + float(focal_offset[0]))), 4),
         round(max(0.22, min(0.78, 0.5 + float(focal_offset[1]))), 4),
     )
 
-    if engine == "ai" and api_key:
-        ai_drafts = _try_ai_style_drafts(
+    resolved_key = api_key or os.environ.get("GEMINI_API_KEY")
+    if engine == "ai" and resolved_key:
+        ai_drafts = _try_gemini_image_style_drafts(
             image_bytes=image_bytes,
             whitespace_target=whitespace_target,
             focal_center=focal_center,
-            api_key=api_key,
+            api_key=resolved_key,
             model=model,
+            style_cue_images=style_cue_images,
         )
         if ai_drafts is not None:
             return ai_drafts

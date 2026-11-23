@@ -47,13 +47,53 @@ app.add_middleware(
 )
 
 
+import os
+
+
 class StyleRequest(BaseModel):
     engine: str = "algorithmic"
     whitespace_target: float = 0.68
     focal_offset: tuple[float, float] = (0.0, 0.0)
     api_key: Optional[str] = None
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-2.5-flash-image"
     active_style_draft_id: Optional[str] = None
+
+
+@app.get("/api/health")
+def health_check() -> dict[str, Any]:
+    """Docker / Home NAS healthcheck endpoint."""
+    storage = get_storage_provider()
+    cues_dir = storage.data_root / "style_cues"
+    cue_count = len(list(cues_dir.glob("*"))) if cues_dir.exists() else 0
+    return {
+        "status": "ok",
+        "data_root": str(storage.data_root),
+        "gemini_configured": bool(os.environ.get("GEMINI_API_KEY")),
+        "gemini_image_model": os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image"),
+        "style_cue_count": cue_count,
+    }
+
+
+@app.get("/api/style-cues")
+def list_style_cues() -> dict[str, Any]:
+    """List visual style cue reference images stored in DATA_ROOT/style_cues/."""
+    storage = get_storage_provider()
+    cues_dir = storage.data_root / "style_cues"
+    cues_dir.mkdir(parents=True, exist_ok=True)
+    files = sorted(p.name for p in cues_dir.iterdir() if p.is_file())
+    return {"style_cues": files}
+
+
+@app.post("/api/style-cues")
+async def upload_style_cue(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Upload a visual style cue reference image to DATA_ROOT/style_cues/ for Gemini Stage 1."""
+    storage = get_storage_provider()
+    cues_dir = storage.data_root / "style_cues"
+    cues_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = Path(file.filename or f"cue_{uuid.uuid4().hex[:6]}.png").name
+    content = await file.read()
+    (cues_dir / safe_name).write_bytes(content)
+    return {"filename": safe_name, "bytes": len(content)}
 
 
 class ColorRequest(BaseModel):
@@ -232,6 +272,12 @@ def update_or_generate_style(session_id: str, req: StyleRequest) -> SessionState
         return session
 
     img_bytes = storage.get_input_image_path(session.source_image_filename).read_bytes()
+    cues_dir = storage.data_root / "style_cues"
+    style_cue_images: list[bytes] = []
+    if cues_dir.exists():
+        for cue_path in sorted(p for p in cues_dir.iterdir() if p.is_file())[:3]:
+            style_cue_images.append(cue_path.read_bytes())
+
     new_drafts = generate_style_drafts(
         img_bytes,
         engine=req.engine,
@@ -239,9 +285,11 @@ def update_or_generate_style(session_id: str, req: StyleRequest) -> SessionState
         focal_offset=req.focal_offset,
         api_key=req.api_key,
         model=req.model,
+        style_cue_images=style_cue_images or None,
     )
     for sd in new_drafts:
-        sd.preview_svg = render_style_draft_preview_svg(sd, active_color)
+        if sd.engine != "ai" or not sd.preview_svg:
+            sd.preview_svg = render_style_draft_preview_svg(sd, active_color)
 
     session.style_drafts = new_drafts
     session.active_style_draft_id = new_drafts[0].draft_id

@@ -1,0 +1,24 @@
+services:
+  lace-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: 3d-print-lace-studio:latest
+    container_name: 3d-print-lace-studio
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - LACE_DATA_DIR=/data
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_IMAGE_MODEL=${GEMINI_IMAGE_MODEL:-gemini-2.5-flash-image}
+    volumes:
+      # Method in the Cloud, Data at Local:
+      # Point LACE_HOST_DATA_DIR to your NAS shared folder (e.g., /volume1/docker/3d_print_lace/data)
+      - "${LACE_HOST_DATA_DIR:-./lace_data_local}:/data"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
