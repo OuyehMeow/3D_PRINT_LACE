@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D_PRINT_LACE · 极简几何十字绣与 BambuLab X2D 3D 蕾丝数字工坊</title>
+  <meta
+    name="description"
+    content="Minimalist Geometric Cross-Stitch & BambuLab X2D 3D Lace Fabrication Studio — 60×60 @ 2.5mm 50%-Rule Workbench, 0.4mm Organic Plotter SVG, and MakerWorld Multi-Color .3mf Generator."
+  />
+  <link rel="stylesheet" href="/css/studio.css" />
+</head>
+<body>
+  <div class="studio-shell" id="studio-app">
+    <!-- ==================== TOP STUDIO HEADER ==================== -->
+    <header class="studio-header">
+      <div class="brand-cluster">
+        <div class="brand-emblem" aria-hidden="true">
+          <svg viewBox="0 0 36 36" width="32" height="32">
+            <rect x="2" y="2" width="32" height="32" rx="4" fill="#F5F1E6" stroke="#1C1E21" stroke-width="1.75"/>
+            <line x1="12.6" y1="2" x2="12.6" y2="34" stroke="#C4C8CE" stroke-width="1.2"/>
+            <line x1="23.3" y1="2" x2="23.3" y2="34" stroke="#C4C8CE" stroke-width="1.2"/>
+            <line x1="2" y1="12.6" x2="34" y2="12.6" stroke="#C4C8CE" stroke-width="1.2"/>
+            <line x1="2" y1="23.3" x2="34" y2="23.3" stroke="#C4C8CE" stroke-width="1.2"/>
+            <path d="M6 30 C 14 21, 21 14, 30 6" stroke="#008F7A" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+            <path d="M6 6 C 16 11, 25 20, 30 30" stroke="#D9532F" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="brand-titles">
+          <div class="brand-title-row">
+            <h1>3D_PRINT_LACE</h1>
+            <span class="architecture-pill" id="data-root-badge" title="Method in the Cloud, Data at Local (All sessions & exports stored in external DATA_ROOT)">
+              <span class="status-dot"></span>
+              Method in Cloud · Data at Local
+            </span>
+          </div>
+          <p class="brand-subtitle">
+            极简几何解构 · 功能色编码 · 60×60 (2.5mm) 50%法则像素化 · 0.4mm 有机十字绣与 BambuLab X2D 3D 蕾丝工坊
+          </p>
+        </div>
+      </div>
+
+      <!-- Session & Quick Preset Toolbar -->
+      <div class="header-actions">
+        <div class="session-selector-group">
+          <label for="session-select" class="micro-label">当前工程 / SESSION</label>
+          <select id="session-select" class="studio-select" aria-label="Select Saved Session">
+            <option value="">加载中 / Loading...</option>
+          </select>
+        </div>
+
+        <div class="preset-group" role="group" aria-label="Quick Sample Presets">
+          <span class="micro-label">一键示例 / PRESETS</span>
+          <div class="preset-buttons">
+            <button type="button" class="btn-preset active" data-preset="crane" id="btn-preset-crane" title="Load Crane (鹤) Geometric Sample">
+              鹤 Crane
+            </button>
+            <button type="button" class="btn-preset" data-preset="cat" id="btn-preset-cat" title="Load Cat (猫) Geometric Sample">
+              猫 Cat
+            </button>
+            <button type="button" class="btn-preset" data-preset="mountain" id="btn-preset-mountain" title="Load Mountain (山岳) Sample">
+              山岳 Mountain
+            </button>
+            <button type="button" class="btn-preset" data-preset="lotus" id="btn-preset-lotus" title="Load Lotus (莲) Sample">
+              莲 Lotus
+            </button>
+          </div>
+        </div>
+
+        <div class="upload-group">
+          <input type="file" id="file-upload-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden />
+          <button type="button" class="btn-primary-outline" id="btn-upload-image">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M8 11V2M8 2L4.5 5.5M8 2L11.5 5.5M2.5 11.5v2h11v-2"/>
+            </svg>
+            上传图像 / Upload
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== 5-STAGE PIPELINE STEPPER BAR ==================== -->
+    <nav class="pipeline-stepper" aria-label="5-Stage Fabrication Pipeline">
+      <div class="stepper-tabs" id="pipeline-tabs">
+        <button type="button" class="step-tab active" data-stage="1" id="tab-stage-1">
+          <span class="step-num">01</span>
+          <span class="step-text">
+            <strong>风格草稿</strong>
+            <small>Style Drafts · 极简几何留白</small>
+          </span>
+        </button>
+
+        <button type="button" class="step-tab" data-stage="2" id="tab-stage-2">
+          <span class="step-num">02</span>
+          <span class="step-text">
+            <strong>配色草稿</strong>
+            <small>Functional Color · 功能色编码</small>
+          </span>
+        </button>
+
+        <button type="button" class="step-tab" data-stage="3" id="tab-stage-3">
+          <span class="step-num">03</span>
+          <span class="step-text">
+            <strong>画布与像素化草稿</strong>
+            <small>60×60 @ 2.5mm · 50%法则工作台</small>
+          </span>
+        </button>
+
+        <button type="button" class="step-tab" data-stage="4" id="tab-stage-4">
+          <span class="step-num">04</span>
+          <span class="step-text">
+            <strong>SVG 与 PNG 草稿</strong>
+            <small>0.4mm Plotter · 有机微隆十字绣</small>
+          </span>
+        </button>
+
+        <button type="button" class="step-tab" data-stage="5" id="tab-stage-5">
+          <span class="step-num">05</span>
+          <span class="step-text">
+            <strong>BambuLab X2D .3mf</strong>
+            <small>3D Lace Studio · MakerWorld</small>
+          </span>
+        </button>
+      </div>
+
+      <div class="stepper-right">
+        <button type="button" class="btn-split-mode" id="btn-toggle-split-studio" title="Toggle All-in-One Split Studio View (全景联动视图)">
+          ✦ 全景联动工作台 / Split Studio
+        </button>
+      </div>
+    </nav>
+
+    <!-- ==================== STATUS & TELEMETRY BANNER ==================== -->
+    <div class="telemetry-strip" id="telemetry-strip">
+      <div class="telemetry-item">
+        <span class="tele-label">SESSION:</span>
+        <strong id="tele-session-name">Crane (鹤)</strong>
+      </div>
+      <div class="telemetry-item">
+        <span class="tele-label">STYLE:</span>
+        <strong id="tele-active-style">几何解构标识</strong>
+      </div>
+      <div class="telemetry-item">
+        <span class="tele-label">PALETTE:</span>
+        <strong id="tele-active-palette">标志性重构色系</strong>
+      </div>
+      <div class="telemetry-item">
+        <span class="tele-label">PHYSICAL GRID:</span>
+        <strong id="tele-grid-spec">60×60 @ 2.5mm (150×150mm)</strong>
+      </div>
+      <div class="telemetry-item">
+        <span class="tele-label">STITCHES:</span>
+        <strong id="tele-stitch-count">--</strong>
+      </div>
+      <div class="telemetry-item telemetry-status" id="studio-status-msg">
+        就绪 · Ready
+      </div>
+    </div>
+
+    <!-- ==================== MAIN WORKSPACE STAGE PANELS ==================== -->
+    <main class="studio-workspace" id="studio-workspace">
+
+      <!-- ==================== STAGE 1: STYLE DRAFTS (风格草稿) ==================== -->
+      <section class="stage-panel active" id="panel-stage-1" data-stage-panel="1">
+        <div class="stage-layout-sidebar-main">
+          <!-- Left Sidebar: Source Image & Geometric Deconstruction Controls -->
+          <aside class="studio-sidebar">
+            <div class="panel-card">
+              <div class="card-header">
+                <h2>输入源图像 · Source Image</h2>
+                <span class="badge-tag" id="source-filename-badge">crane.png</span>
+              </div>
+              <div class="source-preview-box" id="source-dropzone">
+                <img id="source-image-preview" alt="Active input source image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" />
+                <div class="source-overlay-hint">点击或拖拽新图像上传 · Click or Drop Image</div>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="card-header">
+                <h2>第一阶段：极简几何与留白解构</h2>
+                <span class="badge-tag">Stage 01</span>
+              </div>
+              <p class="card-desc">
+                剥离繁复写实细节，提炼最具辨识度的几何轮廓、结构骨架线条与呼吸感负空间留白。
+              </p>
+
+              <div class="control-group">
+                <label for="style-engine-select">解构引擎 / Abstraction Engine</label>
+                <select id="style-engine-select" class="studio-select">
+                  <option value="algorithmic">Local Geometric Deconstruction (本地几何特征解构)</option>
+                  <option value="ai">AI Symbolic Vision (多模态符号视觉生成)</option>
+                </select>
+              </div>
+
+              <div class="control-group hidden" id="style-api-key-group">
+                <label for="style-api-key">AI Vision API Key (Optional Override)</label>
+                <input type="password" id="style-api-key" class="studio-input" placeholder="sk-... (留空则使用环境变量或本地回退)" />
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label for="style-whitespace-slider">目标负空间留白率 / Whitespace Target</label>
+                  <span class="mono-val" id="val-style-whitespace">68%</span>
+                </div>
+                <input type="range" id="style-whitespace-slider" min="0.55" max="0.85" step="0.01" value="0.68" />
+                <div class="range-hints">
+                  <span>55% 饱满</span>
+                  <span>68% 黄金呼吸感</span>
+                  <span>85% 极简空灵</span>
+                </div>
+              </div>
+
+              <div class="control-row-2col">
+                <div class="control-group">
+                  <div class="label-row">
+                    <label for="style-focal-x">视觉重心偏移 X</label>
+                    <span class="mono-val" id="val-style-focal-x">0.00</span>
+                  </div>
+                  <input type="range" id="style-focal-x" min="-0.20" max="0.20" step="0.02" value="0.00" />
+                </div>
+                <div class="control-group">
+                  <div class="label-row">
+                    <label for="style-focal-y">视觉重心偏移 Y</label>
+                    <span class="mono-val" id="val-style-focal-y">0.00</span>
+                  </div>
+                  <input type="range" id="style-focal-y" min="-0.20" max="0.20" step="0.02" value="0.00" />
+                </div>
+              </div>
+
+              <button type="button" class="btn-primary full-width" id="btn-regenerate-style">
+                重新生成风格草稿 · Regenerate Style Drafts
+              </button>
+            </div>
+          </aside>
+
+          <!-- Main Content: 3 Minimalist Geometric Style Draft Cards -->
+          <div class="stage-main-area">
+            <div class="section-banner">
+              <div>
+                <h2>极简几何符号风格草稿 · Minimalist Geometric Style Drafts</h2>
+                <p>点击任一草稿卡片即可将其设为当前激活风格，并自动同步至第三阶段 60×60 像素化网格工作台。</p>
+              </div>
+              <button type="button" class="btn-secondary" id="btn-stage1-to-stage3">
+                进入 60×60 网格工作台 →
+              </button>
+            </div>
+
+            <div class="draft-cards-grid" id="style-drafts-grid">
+              <!-- Populated dynamically by app.js -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== STAGE 2: FUNCTIONAL COLOR SYSTEM (配色草稿) ==================== -->
+      <section class="stage-panel" id="panel-stage-2" data-stage-panel="2">
+        <div class="stage-layout-sidebar-main">
+          <!-- Left Sidebar: Base Canvas & Palette Draft Selector -->
+          <aside class="studio-sidebar">
+            <div class="panel-card">
+              <div class="card-header">
+                <h2>第二阶段：功能性配色体系</h2>
+                <span class="badge-tag">Stage 02</span>
+              </div>
+              <p class="card-desc">
+                色彩作为结构编码系统：2–4 种高识别度功能色 + 大面积暖白/灰白留白基底 + 1 号挤出机固定浅灰 3D 网格耗材。
+              </p>
+
+              <div class="control-group">
+                <label>留白基底色系 / Neutral Base Canvas</label>
+                <div class="segmented-control" id="base-style-toggle">
+                  <button type="button" class="seg-btn active" data-base-style="warm_white" id="btn-base-warm">
+                    <span class="color-dot" style="background:#F5F1E6"></span>
+                    暖白 Warm White
+                  </button>
+                  <button type="button" class="seg-btn" data-base-style="gray_white" id="btn-base-gray">
+                    <span class="color-dot" style="background:#ECEEEB"></span>
+                    灰白 Gray White
+                  </button>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label for="color-max-slider">功能色数量上限 / Max Artwork Colors</label>
+                  <span class="mono-val" id="val-color-max">4 色 (+浅灰网格)</span>
+                </div>
+                <input type="range" id="color-max-slider" min="2" max="5" step="1" value="4" />
+              </div>
+
+              <button type="button" class="btn-primary full-width" id="btn-regenerate-color">
+                重新生成配色草稿 · Regenerate Color System
+              </button>
+            </div>
+
+            <div class="panel-card">
+              <div class="card-header">
+                <h2>候选功能色系 · Palette Drafts</h2>
+                <span class="badge-tag">3 Systems</span>
+              </div>
+              <div class="palette-cards-stack" id="color-drafts-list">
+                <!-- Populated dynamically by app.js -->
+              </div>
+            </div>
+          </aside>
+
+          <!-- Main Area: BambuLab X2D AMS Filament Slot Map & Live Color Proofing -->
+          <div class="stage-main-area">
+            <div class="section-banner">
+              <div>
+                <h2>BambuLab X2D 挤出机与 AMS 耗材槽映射 · Filament &amp; AMS Slot Map</h2>
+                <p>Extruder 1 固定分配给底层 0.4mm 浅灰网格；Extruders 2..K 分配给十字绣功能色。支持实时拾色器微调与 OKLCH 感知坐标检视。</p>
+              </div>
+              <button type="button" class="btn-primary" id="btn-apply-custom-color">
+                保存并同步自定义色板 · Sync Palette
+              </button>
+            </div>
+
+            <div class="ams-slots-container" id="ams-slot-editor">
+              <!-- Populated dynamically by app.js -->
+            </div>
+
+            <div class="color-proofing-grid">
+              <div class="panel-card">
+                <div class="card-header">
+                  <h3>当前色板下的极简几何矢量稿 · Vector Color Proof</h3>
+                  <span class="badge-tag" id="proof-style-name">Style Preview</span>
+                </div>
+                <div class="proof-svg-box" id="stage2-vector-proof"></div>
+              </div>
+
+              <div class="panel-card">
+                <div class="card-header">
+                  <h3>当前色板下的 60×60 十字绣网格稿 · Cross-Stitch Matrix Proof</h3>
+                  <span class="badge-tag" id="proof-grid-summary">60×60 Preview</span>
+                </div>
+                <div class="proof-canvas-box">
+                  <canvas id="stage2-grid-proof-canvas" width="320" height="320"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== STAGE 3: 60x60 @ 2.5mm GRID & 50%-RULE WORKBENCH ==================== -->
+      <section class="stage-panel" id="panel-stage-3" data-stage-panel="3">
+        <div class="stage-layout-sidebar-main">
+          <!-- Left Sidebar: 50%-Rule & Topology Testing Controls -->
+          <aside class="studio-sidebar">
+            <div class="panel-card">
+              <div class="card-header">
+                <h2>第三阶段：60×60 @ 2.5mm 像素化法则</h2>
+                <span class="badge-tag">Stage 03</span>
+              </div>
+              <p class="card-desc">
+                <strong>单格 100% 填满或完全留空</strong>。通过 50% 面积法则与结构线拓扑保留，测试图案在不同阈值下的还原度。
+              </p>
+
+              <div class="control-group">
+                <label for="grid-projection-mode">像素化投射法则 / Projection Rule Mode</label>
+                <select id="grid-projection-mode" class="studio-select">
+                  <option value="hybrid_line_preserving">
+                    Mode C: 色块 50% + 结构线保留 (Hybrid Block + Line, 推荐)
+                  </option>
+                  <option value="strict_50">
+                    Mode A: 严格 50% 面积法则 (Strict 50% Area Rule)
+                  </option>
+                  <option value="dominant_foreground">
+                    Mode B: 总前景占优法则 (Dominant Foreground >= 50%)
+                  </option>
+                </select>
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label for="grid-block-threshold">色块面积填充阈值 (τ_block)</label>
+                  <span class="mono-val" id="val-grid-block-threshold">50%</span>
+                </div>
+                <input type="range" id="grid-block-threshold" min="0.10" max="0.90" step="0.02" value="0.50" />
+                <div class="range-hints">
+                  <span>10% 宽松扩张</span>
+                  <span>50% 标准半格法则</span>
+                  <span>90% 严苛收缩</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="group-line-threshold">
+                <div class="label-row">
+                  <label for="grid-line-threshold">结构线条保留阈值 (τ_line)</label>
+                  <span class="mono-val" id="val-grid-line-threshold">20%</span>
+                </div>
+                <input type="range" id="grid-line-threshold" min="0.05" max="0.60" step="0.02" value="0.20" />
+                <div class="range-hints">
+                  <span>5% 极细全保</span>
+                  <span>20% 骨架连续</span>
+                  <span>60% 仅粗主干</span>
+                </div>
+              </div>
+
+              <div class="control-row-3col">
+                <div class="control-group">
+                  <label for="grid-cols">列数 Cols</label>
+                  <input type="number" id="grid-cols" class="studio-input" min="20" max="100" value="60" />
+                </div>
+                <div class="control-group">
+                  <label for="grid-rows">行数 Rows</label>
+                  <input type="number" id="grid-rows" class="studio-input" min="20" max="100" value="60" />
+                </div>
+                <div class="control-group">
+                  <label for="grid-cell-size">格距 (mm)</label>
+                  <input type="number" id="grid-cell-size" class="studio-input" min="1.5" max="5.0" step="0.1" value="2.5" />
+                </div>
+              </div>
+
+              <div class="physical-size-readout" id="physical-canvas-readout">
+                物理尺寸: <strong>150.0 × 150.0 mm</strong> · 总格数: <strong>3,600</strong>
+              </div>
+
+              <hr class="hairline-divider" />
+
+              <div class="control-row-3col">
+                <div class="control-group">
+                  <div class="label-row">
+                    <label for="grid-offset-x">微调 X</label>
+                    <span class="mono-val" id="val-grid-offset-x">0.00</span>
+                  </div>
+                  <input type="range" id="grid-offset-x" min="-0.50" max="0.50" step="0.05" value="0.00" />
+                </div>
+                <div class="control-group">
+                  <div class="label-row">
+                    <label for="grid-offset-y">微调 Y</label>
+                    <span class="mono-val" id="val-grid-offset-y">0.00</span>
+                  </div>
+                  <input type="range" id="grid-offset-y" min="-0.50" max="0.50" step="0.05" value="0.00" />
+                </div>
+                <div class="control-group">
+                  <div class="label-row">
+                    <label for="grid-scale">缩放 Scale</label>
+                    <span class="mono-val" id="val-grid-scale">1.00×</span>
+                  </div>
+                  <input type="range" id="grid-scale" min="0.60" max="1.40" step="0.05" value="1.00" />
+                </div>
+              </div>
+
+              <label class="checkbox-row" for="grid-despeckle">
+                <input type="checkbox" id="grid-despeckle" checked />
+                <span>消除孤立单格噪点 (De-speckle Isolated 1-Cell Noise)</span>
+              </label>
+
+              <div class="button-stack">
+                <button type="button" class="btn-primary full-width" id="btn-recalculate-grid">
+                  重新计算 60×60 像素化网格 · Recalculate Grid
+                </button>
+                <div class="btn-row-2col">
+                  <button type="button" class="btn-secondary" id="btn-pin-grid" title="Pin current grid configuration for side-by-side comparison">
+                    📌 固定当前草稿对比
+                  </button>
+                  <button type="button" class="btn-secondary" id="btn-compare-modes" title="Automatically test Mode A (50% Strict), Mode B, and Mode C side-by-side">
+                    ⚡ 一键对比 A/B/C 法则
+                  </button>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <!-- Center Main Area: Interactive 2D Grid Workbench & Multi-Draft Comparison Bar -->
+          <div class="stage-main-area workbench-column">
+            <!-- Workbench Toolbar -->
+            <div class="workbench-toolbar">
+              <div class="toolbar-cluster">
+                <span class="micro-label">视图模式 / VIEW</span>
+                <div class="segmented-control" id="workbench-render-mode">
+                  <button type="button" class="seg-btn active" data-render-mode="stitch">
+                    十字绣纹理 Weave
+                  </button>
+                  <button type="button" class="seg-btn" data-render-mode="pixel">
+                    100%色块 Blocks
+                  </button>
+                  <button type="button" class="seg-btn" data-render-mode="heatmap">
+                    50%阈值热力图 Heatmap
+                  </button>
+                </div>
+              </div>
+
+              <div class="toolbar-cluster">
+                <label class="checkbox-inline" for="toggle-ghost-vector">
+                  <input type="checkbox" id="toggle-ghost-vector" checked />
+                  <span>矢量原稿叠影 Ghost Overlay</span>
+                </label>
+                <input
+                  type="range"
+                  id="ghost-opacity-slider"
+                  min="0.10"
+                  max="0.85"
+                  step="0.05"
+                  value="0.38"
+                  class="compact-slider"
+                  title="Ghost Vector Overlay Opacity"
+                />
+              </div>
+
+              <div class="toolbar-cluster">
+                <span class="micro-label">手绘修格 / BRUSH</span>
+                <div class="segmented-control" id="workbench-tool-select">
+                  <button type="button" class="seg-btn active" data-tool="brush" title="Paint individual cells (100% fill)">
+                    ✎ 画笔 Brush
+                  </button>
+                  <button type="button" class="seg-btn" data-tool="eraser" title="Clear cell to 0% empty">
+                    ⌫ 橡皮 Eraser
+                  </button>
+                  <button type="button" class="seg-btn" data-tool="inspect" title="Drag to pan canvas">
+                    ✋ 平移 Pan
+                  </button>
+                </div>
+                <div class="slot-swatches-inline" id="workbench-slot-picker" aria-label="Active Filament Color Slot">
+                  <!-- Populated dynamically -->
+                </div>
+                <button type="button" class="btn-ghost-sm" id="btn-clear-overrides" title="Reset manual cell brush edits">
+                  重置手绘
+                </button>
+              </div>
+
+              <div class="toolbar-cluster">
+                <button type="button" class="btn-icon-sm" id="btn-wb-zoom-out" title="Zoom Out">−</button>
+                <button type="button" class="btn-ghost-sm" id="btn-wb-zoom-reset" title="Reset 100% View">100%</button>
+                <button type="button" class="btn-icon-sm" id="btn-wb-zoom-in" title="Zoom In">+</button>
+              </div>
+            </div>
+
+            <!-- Interactive 2D Canvas Container -->
+            <div class="workbench-canvas-wrap">
+              <canvas id="workbench-2d-canvas"></canvas>
+            </div>
+
+            <!-- Hover Cell Telemetry Readout Bar -->
+            <div class="cell-telemetry-bar" id="cell-telemetry-bar">
+              <div class="tele-cell-item">
+                <span>坐标 CELL:</span>
+                <strong id="hover-cell-coord">移动鼠标检视单元格 (Hover any cell)</strong>
+              </div>
+              <div class="tele-cell-item">
+                <span>物理位置 MM:</span>
+                <strong id="hover-cell-mm">--</strong>
+              </div>
+              <div class="tele-cell-item">
+                <span>原始覆盖率 COVERAGE:</span>
+                <strong id="hover-cell-cov">--</strong>
+              </div>
+              <div class="tele-cell-item">
+                <span>50%法则判定 RULE:</span>
+                <strong id="hover-cell-rule">--</strong>
+              </div>
+              <div class="tele-cell-item">
+                <span>分配耗材槽 FILAMENT:</span>
+                <strong id="hover-cell-slot">--</strong>
+              </div>
+            </div>
+
+            <!-- Multi-Draft Side-by-Side Comparison Bar -->
+            <div class="comparison-drawer">
+              <div class="comparison-header">
+                <div>
+                  <h3>多方案并排对比栏 · Multi-Draft Side-by-Side Comparison</h3>
+                  <p>对比不同 50% 阈值、结构线保留或不同风格草稿下的网格还原度（点击快照可立即恢复该配置）。</p>
+                </div>
+                <span class="badge-tag" id="pinned-count-badge">0 / 3 Snapshots</span>
+              </div>
+              <div class="pinned-drafts-row" id="pinned-grids-bar">
+                <!-- Populated dynamically by app.js -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== STAGE 4: SVG & PNG PLOTTER CROSS-STITCH ==================== -->
+      <section class="stage-panel" id="panel-stage-4" data-stage-panel="4">
+        <div class="stage-layout-sidebar-main">
+          <!-- Left Sidebar: 0.4mm Organic Center-Bulge Cross-Stitch Controls -->
+          <aside class="studio-sidebar">
+            <div class="panel-card">
+              <div class="card-header">
+                <h2>第四阶段：0.4mm 有机微隆十字绣 SVG</h2>
+                <span class="badge-tag">Stage 04</span>
+              </div>
+              <p class="card-desc">
+                每个填色单元格由两条 <strong>0.4mm</strong> 粗细的三次贝塞尔曲线交叉构成，<strong>在交叉处中间微微隆起</strong>，模拟真实丝线张力避免呆板。
+              </p>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label for="svg-stroke-width">曲线线宽 / Thread Stroke Width</label>
+                  <span class="mono-val" id="val-svg-stroke-width">0.40 mm</span>
+                </div>
+                <input type="range" id="svg-stroke-width" min="0.20" max="1.00" step="0.05" value="0.40" />
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label for="svg-bulge-ratio">交叉处微隆曲率 / Center Bulge (δ_xy)</label>
+                  <span class="mono-val" id="val-svg-bulge-ratio">0.09 (0.23mm)</span>
+                </div>
+                <input type="range" id="svg-bulge-ratio" min="0.00" max="0.25" step="0.01" value="0.09" />
+                <div class="range-hints">
+                  <span>0.00 机械直线</span>
+                  <span>0.09 自然丝线微隆</span>
+                  <span>0.25 饱满丰盈</span>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label for="svg-corner-inset">格角内缩量 / Corner Inset</label>
+                  <span class="mono-val" id="val-svg-corner-inset">0.00 mm</span>
+                </div>
+                <input type="range" id="svg-corner-inset" min="0.00" max="0.40" step="0.02" value="0.00" />
+              </div>
+
+              <label class="checkbox-row" for="svg-include-grid">
+                <input type="checkbox" id="svg-include-grid" checked />
+                <span>包含 0.4mm 浅灰底网图层 (Include Light Gray Grid Layer)</span>
+              </label>
+
+              <label class="checkbox-row" for="svg-optimize-path">
+                <input type="checkbox" id="svg-optimize-path" checked />
+                <span>绘图仪 TSP 路径最近邻优化 (Plotter Travel Optimization)</span>
+              </label>
+
+              <button type="button" class="btn-primary full-width" id="btn-generate-svg">
+                生成 SVG 与高清 PNG 草稿 · Render Plotter Output
+              </button>
+            </div>
+
+            <!-- Single-Cell Magnified Cubic Bezier Diagram -->
+            <div class="panel-card">
+              <div class="card-header">
+                <h3>单格交叉微隆几何检视 · 40× Cell Macro</h3>
+                <span class="badge-tag">2.5 × 2.5 mm</span>
+              </div>
+              <div class="macro-cell-diagram" id="single-cell-bezier-diagram">
+                <!-- Live dynamic SVG populated by app.js -->
+              </div>
+              <p class="micro-caption">
+                实线为上层拱起对角线 (\)，虚线/底线为下层对角线 (/)，中心交叉处沿法向微隆 δ_xy。
+              </p>
+            </div>
+
+            <div class="panel-card">
+              <div class="card-header">
+                <h3>导出下载 · Plotter &amp; Image Exports</h3>
+                <span class="badge-tag">DATA_ROOT</span>
+              </div>
+              <div class="button-stack">
+                <button type="button" class="btn-primary full-width" id="btn-download-svg">
+                  ⬇ 下载 0.4mm 绘图仪 .SVG 文件
+                </button>
+                <button type="button" class="btn-secondary full-width" id="btn-download-png">
+                  ⬇ 下载高清 .PNG 像素十字绣预览
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          <!-- Main Area: Side-by-Side Vector SVG & PNG Viewport -->
+          <div class="stage-main-area">
+            <div class="section-banner">
+              <div>
+                <h2>矢量绘图仪 SVG 与高清 PNG 草稿对比 · Vector SVG &amp; Raster PNG</h2>
+                <p id="svg-export-summary">物理画布: 150.0 × 150.0 mm · 0.4mm 线宽 · 支持缩放检视每一根交叉曲线。</p>
+              </div>
+              <div class="segmented-control" id="svg-zoom-control">
+                <button type="button" class="seg-btn active" data-svg-zoom="1">100% 全幅</button>
+                <button type="button" class="seg-btn" data-svg-zoom="2">200% 细节</button>
+                <button type="button" class="seg-btn" data-svg-zoom="4">400% 微距</button>
+              </div>
+            </div>
+
+            <div class="svg-png-split-grid">
+              <div class="panel-card viewport-card">
+                <div class="card-header">
+                  <h3>Live 0.4mm Vector SVG Viewport (矢量曲线图层)</h3>
+                  <span class="badge-tag" id="svg-filename-tag">cross_stitch.svg</span>
+                </div>
+                <div class="scrollable-artwork-viewport" id="svg-live-viewport">
+                  <!-- Populated with live SVG -->
+                </div>
+              </div>
+
+              <div class="panel-card viewport-card">
+                <div class="card-header">
+                  <h3>High-Res Raster PNG Draft (高清光栅预览)</h3>
+                  <span class="badge-tag" id="png-filename-tag">cross_stitch.png</span>
+                </div>
+                <div class="scrollable-artwork-viewport" id="png-live-viewport">
+                  <img id="png-preview-img" alt="Generated Cross-Stitch PNG Preview" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== STAGE 5: BAMBULAB X2D .3MF 3D LACE STUDIO ==================== -->
+      <section class="stage-panel" id="panel-stage-5" data-stage-panel="5">
+        <div class="stage-layout-sidebar-main">
+          <!-- Left Sidebar: BambuLab X2D & MakerWorld .3mf Slicer Parameters -->
+          <aside class="studio-sidebar">
+            <div class="panel-card">
+              <div class="card-header">
+                <h2>第五阶段：BambuLab X2D 3D 蕾丝 .3mf</h2>
+                <span class="badge-tag">MakerWorld</span>
+              </div>
+              <p class="card-desc">
+                底层为 <strong>浅灰色 0.4mm 网格骨架</strong> (Part 1, Z: 0.0–0.4mm)，彩色十字绣丝线编织其上 (Parts 2..K, Z: 0.4–0.8mm)，交叉中心带真实 3D Z 轴微拱桥接。
+              </p>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label for="bambu-grid-height">浅灰底网厚度 / Part 1 Grid Height (Z)</label>
+                  <span class="mono-val" id="val-bambu-grid-height">0.40 mm</span>
+                </div>
+                <input type="range" id="bambu-grid-height" min="0.20" max="1.00" step="0.04" value="0.40" />
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label for="bambu-stitch-thickness">十字绣丝线层厚 / Stitch Layer Height</label>
+                  <span class="mono-val" id="val-bambu-stitch-thickness">0.20 mm</span>
+                </div>
+                <input type="range" id="bambu-stitch-thickness" min="0.12" max="0.50" step="0.04" value="0.20" />
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label for="bambu-arch-z">交叉处 3D 隆起拱高 / Center Z-Arch</label>
+                  <span class="mono-val" id="val-bambu-arch-z">0.20 mm</span>
+                </div>
+                <input type="range" id="bambu-arch-z" min="0.08" max="0.50" step="0.02" value="0.20" />
+              </div>
+
+              <div class="control-row-2col">
+                <div class="control-group">
+                  <div class="label-row">
+                    <label for="bambu-line-width">喷嘴线宽</label>
+                    <span class="mono-val" id="val-bambu-line-width">0.40 mm</span>
+                  </div>
+                  <input type="range" id="bambu-line-width" min="0.24" max="0.60" step="0.04" value="0.40" />
+                </div>
+                <div class="control-group">
+                  <div class="label-row">
+                    <label for="bambu-frame-width">外边框宽</label>
+                    <span class="mono-val" id="val-bambu-frame-width">0.80 mm</span>
+                  </div>
+                  <input type="range" id="bambu-frame-width" min="0.40" max="2.00" step="0.10" value="0.80" />
+                </div>
+              </div>
+
+              <label class="checkbox-row" for="bambu-include-frame">
+                <input type="checkbox" id="bambu-include-frame" checked />
+                <span>生成蕾丝加固外边框 (Outer Structural Lace Frame)</span>
+              </label>
+
+              <div class="button-stack">
+                <button type="button" class="btn-secondary full-width" id="btn-preview-3mf">
+                  ↻ 更新 3D 几何预览 · Sync 3D Mesh Preview
+                </button>
+                <button type="button" class="btn-accent-cta full-width" id="btn-export-3mf">
+                  ⬇ 生成并下载 MakerWorld .3mf 工程文件
+                </button>
+              </div>
+            </div>
+
+            <!-- Multi-Color Part Breakdown & AMS Extruder Table -->
+            <div class="panel-card">
+              <div class="card-header">
+                <h3>.3mf 多色构件与面数清单 · Mesh Manifest</h3>
+                <span class="badge-tag" id="bambu-filesize-badge">Ready</span>
+              </div>
+              <div id="bambu-export-breakdown" class="mesh-manifest-box">
+                <!-- Populated dynamically by app.js -->
+              </div>
+            </div>
+          </aside>
+
+          <!-- Main Area: Interactive 3D Orbit & Zoom BambuLab X2D Viewport -->
+          <div class="stage-main-area workbench-column">
+            <div class="workbench-toolbar viewer3d-toolbar">
+              <div class="toolbar-cluster">
+                <span class="micro-label">3D 视角预设 / CAMERA</span>
+                <div class="segmented-control" id="viewer3d-cam-presets">
+                  <button type="button" class="seg-btn" data-cam-preset="top">
+                    俯视构建板 Top View
+                  </button>
+                  <button type="button" class="seg-btn active" data-cam-preset="iso">
+                    轴测编织 Isometric Weave
+                  </button>
+                  <button type="button" class="seg-btn" data-cam-preset="macro">
+                    🔍 交叉处微距隆起 Macro Z-Arch
+                  </button>
+                </div>
+              </div>
+
+              <div class="toolbar-cluster">
+                <span class="micro-label">Z轴拱高放大 / Z-SCALE</span>
+                <input
+                  type="range"
+                  id="viewer3d-z-scale"
+                  min="1.0"
+                  max="5.0"
+                  step="0.5"
+                  value="2.5"
+                  class="compact-slider"
+                />
+                <span class="mono-val" id="val-viewer3d-z-scale">2.5×</span>
+              </div>
+
+              <div class="toolbar-cluster">
+                <label class="checkbox-inline">
+                  <input type="checkbox" id="v3d-toggle-grid" checked />
+                  <span>Part 1 浅灰底网</span>
+                </label>
+                <label class="checkbox-inline">
+                  <input type="checkbox" id="v3d-toggle-lower" checked />
+                  <span>下层斜线 (/)</span>
+                </label>
+                <label class="checkbox-inline">
+                  <input type="checkbox" id="v3d-toggle-upper" checked />
+                  <span>上层微拱 (\)</span>
+                </label>
+              </div>
+
+              <div class="toolbar-cluster" id="viewer3d-extruder-filters">
+                <!-- Extruder filter pills populated dynamically -->
+              </div>
+            </div>
+
+            <div class="viewer3d-canvas-wrap">
+              <canvas id="viewer-3d-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

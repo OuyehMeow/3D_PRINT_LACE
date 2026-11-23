@@ -1,0 +1,33 @@
+{
+  "printer_model": "Bambu Lab X2D",
+  "nozzle_diameter": ["0.4"],
+  "wall_generator": "arachne",
+  "detect_thin_wall": "1",
+  "min_bead_width": "85%",
+  "min_feature_size": "20%",
+  "layer_height": "0.2",
+  "initial_layer_print_height": "0.2",
+  "line_width": "0.4",
+  "outer_wall_line_width": "0.4",
+  "inner_wall_line_width": "0.4",
+  "initial_layer_line_width": "0.4",
+  "sparse_infill_line_width": "0.4",
+  "internal_solid_infill_line_width": "0.4",
+  "top_surface_line_width": "0.4",
+  "wall_loops": "1",
+  "top_shell_layers": "2",
+  "bottom_shell_layers": "2",
+  "sparse_infill_density": "100%",
+  "sparse_infill_pattern": "rectilinear",
+  "elefant_foot_compensation": "0",
+  "xy_contour_compensation": "0",
+  "xy_hole_compensation": "0",
+  "enable_prime_tower": "1",
+  "prime_tower_width": "35",
+  "filament_colour": ["#C4C8CE"],
+  "filament_type": ["PLA"],
+  "filament_settings_id": ["Bambu PLA Basic @BBL X2D"],
+  "different_settings_to_system": [
+    "wall_generator;detect_thin_wall;line_width;outer_wall_line_width;inner_wall_line_width;initial_layer_line_width;min_bead_width;min_feature_size;layer_height;initial_layer_print_height"
+  ]
+}

@@ -1,0 +1,33 @@
+# 3D_PRINT_LACE Configuration Template
+# Copy to ~/.config/3d_print_lace/config.json or set via LACE_DATA_DIR environment variable.
+
+storage:
+  data_dir: "/home/antigravity/lace_data_root"
+  gdrive_folder_id: "1laThzfsycHIn_dkOsp18LKkRyTfInlc-"
+
+ai_provider:
+  enabled: false
+  provider: "gemini" # gemini | openai | custom
+  model: "gemini-2.5-flash"
+  api_key_env: "GEMINI_API_KEY"
+  endpoint_url: ""
+
+defaults:
+  grid:
+    cols: 60
+    rows: 60
+    cell_size_mm: 2.5
+    projection_mode: "hybrid_line_preserving" # strict_50 | dominant_foreground | hybrid_line_preserving
+    block_threshold: 0.50
+    line_threshold: 0.20
+  svg:
+    stroke_width_mm: 0.4
+    bulge_ratio: 0.09 # ~0.225mm on 2.5mm cell
+  bambu_3mf:
+    printer_model: "Bambu Lab X2D"
+    nozzle_diameter_mm: 0.4
+    plate_size_mm: [256.0, 256.0, 260.0]
+    grid_filament_hex: "#C4C8CE"
+    grid_height_mm: 0.40
+    stitch_layer_height_mm: 0.20
+    stitch_arch_z_mm: 0.20
