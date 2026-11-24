@@ -687,16 +687,41 @@ def render_style_draft_preview_svg(
     return "\n".join(svg_parts)
 
 
+def _find_connected_components(
+    mask: list[list[int]], width: int, height: int
+) -> list[list[tuple[int, int]]]:
+    """Return 4-connected foreground pixel components for a binary mask."""
+    visited = [[False] * width for _ in range(height)]
+    components: list[list[tuple[int, int]]] = []
+    for y in range(height):
+        for x in range(width):
+            if mask[y][x] == 1 and not visited[y][x]:
+                comp: list[tuple[int, int]] = []
+                queue = deque([(x, y)])
+                visited[y][x] = True
+                while queue:
+                    cx, cy = queue.popleft()
+                    comp.append((cx, cy))
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        nx, ny = cx + dx, cy + dy
+                        if 0 <= nx < width and 0 <= ny < height and mask[ny][nx] == 1 and not visited[ny][nx]:
+                            visited[ny][nx] = True
+                            queue.append((nx, ny))
+                components.append(comp)
+    return components
+
+
 def _vectorize_flat_graphic_image(
     gen_image_bytes: bytes,
     draft_id: str,
     name: str,
     description: str,
     focal_center: Point2D,
+    color_draft: ColorDraft | None = None,
 ) -> StyleDraft:
     """Convert a crisp flat-color Gemini-generated Style Draft image into VectorRegions + StructuralLines."""
     img = Image.open(io.BytesIO(gen_image_bytes)).convert("RGB")
-    grid_n = 72
+    grid_n = 96
     small = img.resize((grid_n, grid_n), Image.Resampling.BILINEAR)
     pixels = small.load()
 
@@ -711,32 +736,42 @@ def _vectorize_flat_graphic_image(
     bg_g = sum(c[1] for c in corners) / 4.0
     bg_b = sum(c[2] for c in corners) / 4.0
 
-    # Collect foreground pixels and quantize into up to 4 distinct flat color slots
+    # Collect foreground pixels
     fg_coords: list[tuple[int, int, tuple[int, int, int]]] = []
     for y in range(grid_n):
         for x in range(grid_n):
             r, g, b = pixels[x, y]
             dist = math.sqrt((r - bg_r) ** 2 + (g - bg_g) ** 2 + (b - bg_b) ** 2)
-            if dist > 28.0:
+            if dist > 26.0:
                 fg_coords.append((x, y, (r, g, b)))
 
     fg_ratio = len(fg_coords) / float(grid_n * grid_n)
     whitespace_ratio = round(max(0.55, min(0.95, 1.0 - fg_ratio)), 4)
 
-    # Greedy distinct-color centroids (up to 4 slots)
-    centroids: list[tuple[float, float, float]] = []
-    for _, _, rgb in fg_coords[:: max(1, len(fg_coords) // 400)]:
+    # Use provided functional palette centroids if available, otherwise cluster up to 4 flat hues
+    if color_draft and color_draft.colors:
+        centroids = [
+            (
+                float(int(fc.hex[1:3], 16)),
+                float(int(fc.hex[3:5], 16)),
+                float(int(fc.hex[5:7], 16)),
+            )
+            for fc in color_draft.colors
+        ]
+    else:
+        centroids = []
+        for _, _, rgb in fg_coords[:: max(1, len(fg_coords) // 400)]:
+            if not centroids:
+                centroids.append((float(rgb[0]), float(rgb[1]), float(rgb[2])))
+                continue
+            min_d = min(
+                math.sqrt((rgb[0] - c[0]) ** 2 + (rgb[1] - c[1]) ** 2 + (rgb[2] - c[2]) ** 2)
+                for c in centroids
+            )
+            if min_d > 55.0 and len(centroids) < 4:
+                centroids.append((float(rgb[0]), float(rgb[1]), float(rgb[2])))
         if not centroids:
-            centroids.append((float(rgb[0]), float(rgb[1]), float(rgb[2])))
-            continue
-        min_d = min(
-            math.sqrt((rgb[0] - c[0]) ** 2 + (rgb[1] - c[1]) ** 2 + (rgb[2] - c[2]) ** 2)
-            for c in centroids
-        )
-        if min_d > 55.0 and len(centroids) < 4:
-            centroids.append((float(rgb[0]), float(rgb[1]), float(rgb[2])))
-    if not centroids:
-        centroids = [(0.0, 143.0, 122.0)]
+            centroids = [(0.0, 143.0, 122.0)]
 
     # Build per-slot binary masks and trace clean polygonal contours
     slot_masks: dict[int, list[list[int]]] = {
@@ -758,18 +793,17 @@ def _vectorize_flat_graphic_image(
     reg_counter = 0
 
     for slot, mask in slot_masks.items():
-        comps = _connected_components(mask, grid_n, grid_n)
+        comps = _find_connected_components(mask, grid_n, grid_n)
         for comp in comps:
             if len(comp) < 4:
                 continue
             comp_mask = [[0] * grid_n for _ in range(grid_n)]
             for cx_i, cy_i in comp:
                 comp_mask[cy_i][cx_i] = 1
-            raw_contour = _trace_moore_contour(comp_mask, grid_n, grid_n)
-            if len(raw_contour) < 3:
+            norm_contour = _trace_contour(comp_mask, grid_n, grid_n)
+            if len(norm_contour) < 3:
                 continue
-            norm_pts = [(px / float(grid_n), py / float(grid_n)) for px, py in raw_contour]
-            simplified = rdp_simplify(norm_pts, epsilon=0.012)
+            simplified = _simplify_closed_polygon(norm_contour, epsilon=0.009, min_vertices=3)
             if len(simplified) >= 3:
                 reg_counter += 1
                 regions.append(
